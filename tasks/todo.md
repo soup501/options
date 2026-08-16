@@ -1,0 +1,4 @@
+- [x] PostgreSQL schema and SQLAlchemy setup script
+- [x] Node `pg` repository and stock trade API
+- [x] Persisted stock buy/sell UI
+- [x] Lint and production build

@@ -21,9 +21,9 @@ This is a simulator only. It must never connect to a brokerage or place a real o
 
 | Area | Decision |
 | --- | --- |
-| Users | One local user; no authentication in the MVP |
+| Users | Google-authenticated users with one paper account per user |
 | Database | Existing PostgreSQL server at `10.0.0.100:5432` |
-| Starting balance | $10,000, created once by an idempotent seed |
+| Starting balance | $20,000, credited once when a user first signs in |
 | Option positions | Buy call, sell call, buy put, sell put |
 | Short-option safety | Covered calls and cash-secured puts only |
 | Account type | Cash account; no margin or borrowing |
@@ -50,7 +50,6 @@ This is a simulator only. It must never connect to a brokerage or place a real o
 ### Out of Scope
 
 - Real brokerage connectivity or real-money trading.
-- Multi-user accounts, authentication, or authorization.
 - Margin, naked options, short stock, or borrowing.
 - Multi-leg spreads and strategy-order grouping.
 - Index options, cash-settled contracts, futures options, mini options, and adjusted/non-standard contracts.
