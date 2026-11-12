@@ -106,7 +106,7 @@ jobs:
 
           remote_transfer_dir="$1"
           artifact_sha="$2"
-          public_url="$3"
+          public_url="${3:-}"
           [[ "$remote_transfer_dir" =~ ^/var/tmp/options-deploy\.[A-Za-z0-9]+$ ]]
           [[ "$artifact_sha" =~ ^[0-9a-f]{40}$ ]]
 
