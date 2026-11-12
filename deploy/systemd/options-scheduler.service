@@ -1,0 +1,15 @@
+[Unit]
+Description=Options settlement scheduler
+After=network.target docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/options
+User=options
+EnvironmentFile=/etc/options.env
+ExecStart=/var/www/options/node_modules/.bin/tsx scripts/option-scheduler.ts
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,236 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: options-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPENDENCY_ARCHIVE: /tmp/options-node-modules-${{ github.sha }}.tar.gz
+      DEPENDENCY_CHECKSUM: /tmp/options-node-modules-${{ github.sha }}.tar.gz.sha256
+    steps:
+      - name: Check out the deployment revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up the production Node.js runtime
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.4
+          architecture: x64
+          package-manager-cache: false
+
+      - name: Install and archive production dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          [[ "$(uname -m)" == "x86_64" ]]
+          npm ci --include=dev --maxsockets=2 --no-audit --no-fund --foreground-scripts
+          tar -C "$GITHUB_WORKSPACE" -czf "$DEPENDENCY_ARCHIVE" node_modules
+          (
+            cd "$(dirname "$DEPENDENCY_ARCHIVE")"
+            sha256sum "$(basename "$DEPENDENCY_ARCHIVE")" > "$DEPENDENCY_CHECKSUM"
+          )
+
+      - name: Deploy the latest main branch
+        shell: bash
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          set -Eeuo pipefail
+
+          : "${DEPLOY_HOST:?Set the DEPLOY_HOST repository secret}"
+          : "${DEPLOY_SSH_PRIVATE_KEY:?Set the DEPLOY_SSH_PRIVATE_KEY repository secret}"
+          : "${DEPLOY_KNOWN_HOSTS:?Set the DEPLOY_KNOWN_HOSTS repository secret}"
+          [[ -f "$DEPENDENCY_ARCHIVE" ]]
+          [[ -f "$DEPENDENCY_CHECKSUM" ]]
+
+          temp_dir="$(mktemp -d)"
+          remote_transfer_dir=""
+          cleanup() {
+            if [[ -n "${remote_transfer_dir:-}" ]]; then
+              "${ssh_cmd[@]}" bash -s -- "$remote_transfer_dir" <<'REMOTE_CLEANUP' || true
+          set -Eeuo pipefail
+          [[ "$1" =~ ^/var/tmp/options-deploy\.[A-Za-z0-9]+$ ]]
+          rm -rf -- "$1"
+          REMOTE_CLEANUP
+            fi
+            ssh-agent -k >/dev/null 2>&1 || true
+            rm -f "$DEPENDENCY_ARCHIVE" "$DEPENDENCY_CHECKSUM"
+            rm -rf "$temp_dir"
+          }
+          trap cleanup EXIT
+
+          umask 077
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$temp_dir/known_hosts"
+          eval "$(ssh-agent -s)" >/dev/null
+          ssh-add - <<< "$DEPLOY_SSH_PRIVATE_KEY" >/dev/null
+
+          ssh_opts=(
+            -o BatchMode=yes
+            -o ConnectTimeout=20
+            -o ServerAliveInterval=30
+            -o ServerAliveCountMax=6
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="$temp_dir/known_hosts"
+          )
+          ssh_cmd=(ssh -A "${ssh_opts[@]}" "root@$DEPLOY_HOST")
+          scp_cmd=(scp -A "${ssh_opts[@]}")
+
+          remote_transfer_dir="$("${ssh_cmd[@]}" 'mktemp -d /var/tmp/options-deploy.XXXXXX')"
+          [[ "$remote_transfer_dir" =~ ^/var/tmp/options-deploy\.[A-Za-z0-9]+$ ]]
+          "${scp_cmd[@]}" "$DEPENDENCY_ARCHIVE" "$DEPENDENCY_CHECKSUM" "root@$DEPLOY_HOST:$remote_transfer_dir/"
+
+          "${ssh_cmd[@]}" bash -s -- "$remote_transfer_dir" "$GITHUB_SHA" "${PUBLIC_URL:-}" <<'REMOTE_SCRIPT'
+          set -Eeuo pipefail
+
+          remote_transfer_dir="$1"
+          artifact_sha="$2"
+          public_url="$3"
+          [[ "$remote_transfer_dir" =~ ^/var/tmp/options-deploy\.[A-Za-z0-9]+$ ]]
+          [[ "$artifact_sha" =~ ^[0-9a-f]{40}$ ]]
+
+          cleanup_transfer() {
+            if [[ -n "${remote_transfer_dir:-}" ]]; then
+              rm -rf -- "$remote_transfer_dir"
+            fi
+          }
+          trap cleanup_transfer EXIT
+
+          archive_path="$remote_transfer_dir/options-node-modules-${artifact_sha}.tar.gz"
+          checksum_path="$archive_path.sha256"
+          [[ -f "$archive_path" ]]
+          [[ -f "$checksum_path" ]]
+
+          app_dir=/var/www/options
+          compose=(docker compose -f deploy/docker-compose.prod.yml --env-file /etc/options.env)
+          git_cmd=(git -c safe.directory=/var/www/options -C /var/www/options)
+
+          exec 9>/var/lock/options-deploy.lock
+          flock -n 9 || { echo "another deployment holds the droplet lock" >&2; exit 1; }
+
+          [[ -d "$app_dir/.git" ]]
+          [[ "$("${git_cmd[@]}" symbolic-ref --quiet --short HEAD)" == "main" ]]
+          "${git_cmd[@]}" diff --quiet
+          "${git_cmd[@]}" diff --cached --quiet
+
+          "${git_cmd[@]}" fetch --quiet origin main
+          "${git_cmd[@]}" pull --ff-only origin main
+          expected_tip="$("${git_cmd[@]}" rev-parse origin/main)"
+          [[ "$("${git_cmd[@]}" rev-parse HEAD)" == "$expected_tip" ]]
+          [[ "$artifact_sha" == "$expected_tip" ]] || {
+            echo "dependency artifact revision does not match origin/main" >&2
+            exit 1
+          }
+          (cd "$remote_transfer_dir" && sha256sum -c "$(basename "$checksum_path")")
+          chown -R options:options "$app_dir"
+
+          cd "$app_dir"
+          timeout 120 "${compose[@]}" up -d --wait
+
+          service_stopped=0
+          stage="prepare service restart"
+          recover_service() {
+            local deploy_status=$?
+            trap - EXIT
+            cleanup_transfer
+
+            if (( service_stopped )); then
+              systemctl start options || echo "Recovery: failed to start options" >&2
+              systemctl start options-scheduler || echo "Recovery: failed to start options-scheduler" >&2
+            fi
+
+            if (( deploy_status != 0 )); then
+              printf 'Deployment failed during stage %q (exit %s)\n' "$stage" "$deploy_status" >&2
+              free -h >&2 || true
+              swapon --show >&2 || true
+              journalctl -k -n 200 --no-pager 2>/dev/null | \
+                grep -Ei 'out of memory|oom-kill|killed process' | tail -n 20 >&2 || true
+            fi
+            exit "$deploy_status"
+          }
+          trap recover_service EXIT
+
+          install -o root -g root -m 0644 deploy/systemd/options.service /etc/systemd/system/options.service
+          install -o root -g root -m 0644 deploy/systemd/options-scheduler.service /etc/systemd/system/options-scheduler.service
+          systemctl daemon-reload
+
+          service_stopped=1
+          systemctl stop options
+          systemctl stop options-scheduler || true
+
+          run_as_app() {
+            runuser -u options -- bash -lc "set -Eeuo pipefail
+              cd '$app_dir'
+              set -a
+              . /etc/options.env
+              set +a
+              $1"
+          }
+
+          stage="replace runner-built dependencies"
+          echo "Stage: $stage"
+          rm -rf "$app_dir/node_modules"
+          tar -C "$app_dir" -xzf "$archive_path"
+          chown -R options:options "$app_dir/node_modules"
+          cleanup_transfer
+          remote_transfer_dir=""
+
+          stage="apply database schema"
+          echo "Stage: $stage"
+          run_as_app '.venv/bin/pip install --quiet -r requirements.txt && .venv/bin/python scripts/setup_db.py'
+
+          stage="build application"
+          echo "Stage: $stage"
+          run_as_app 'export NODE_OPTIONS=--max-old-space-size=768; npm run build'
+
+          stage="start services"
+          echo "Stage: $stage"
+          systemctl start options
+          systemctl start options-scheduler
+          service_stopped=0
+
+          stage="verify deployment health"
+          echo "Stage: $stage"
+          systemctl is-active --quiet options
+          systemctl is-active --quiet options-scheduler
+          systemctl is-active --quiet nginx
+          [[ "$("${git_cmd[@]}" rev-parse HEAD)" == "$expected_tip" ]]
+
+          wait_for_status() {
+            local url="$1" status=""
+            for _ in {1..12}; do
+              status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 15 "$url" || true)"
+              [[ "$status" =~ ^(200|30[12378])$ ]] && return 0
+              sleep 5
+            done
+            echo "expected $url to respond with 200/3xx; got $status" >&2
+            return 1
+          }
+
+          wait_for_status http://127.0.0.1:3001/
+          if [[ -n "$public_url" ]]; then
+            wait_for_status "$public_url"
+          fi
+          printf 'Deployed origin/main commit %s\n' "$expected_tip"
+          REMOTE_SCRIPT
