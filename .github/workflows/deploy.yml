@@ -44,7 +44,8 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           [[ "$(uname -m)" == "x86_64" ]]
           npm ci --include=dev --maxsockets=2 --no-audit --no-fund --foreground-scripts
-          tar -C "$GITHUB_WORKSPACE" -czf "$DEPENDENCY_ARCHIVE" node_modules
+          npm run build
+          tar -C "$GITHUB_WORKSPACE" -czf "$DEPENDENCY_ARCHIVE" node_modules .next
           (
             cd "$(dirname "$DEPENDENCY_ARCHIVE")"
             sha256sum "$(basename "$DEPENDENCY_ARCHIVE")" > "$DEPENDENCY_CHECKSUM"
@@ -188,21 +189,17 @@ jobs:
               $1"
           }
 
-          stage="replace runner-built dependencies"
+          stage="replace runner-built dependencies and build"
           echo "Stage: $stage"
-          rm -rf "$app_dir/node_modules"
+          rm -rf "$app_dir/node_modules" "$app_dir/.next"
           tar -C "$app_dir" -xzf "$archive_path"
-          chown -R options:options "$app_dir/node_modules"
+          chown -R options:options "$app_dir/node_modules" "$app_dir/.next"
           cleanup_transfer
           remote_transfer_dir=""
 
           stage="apply database schema"
           echo "Stage: $stage"
           run_as_app '.venv/bin/pip install --quiet -r requirements.txt && .venv/bin/python scripts/setup_db.py'
-
-          stage="build application"
-          echo "Stage: $stage"
-          run_as_app 'export NODE_OPTIONS=--max-old-space-size=768; npm run build'
 
           stage="start services"
           echo "Stage: $stage"
