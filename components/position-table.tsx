@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatExpirationDate } from "@/lib/expiration";
 import { StockInfoButton } from "@/components/stock-info-button";
+import { BASE_PATH } from "@/lib/base-path";
 
 type StockPosition = { symbol: string; quantity: number; cost_basis: string };
 type OptionPosition = {
@@ -62,7 +63,7 @@ export function PositionTable({
       let endpoint: string;
       let payload: Record<string, unknown>;
       if (selected.type === "stock") {
-        endpoint = "/api/stocks/trade";
+        endpoint = `${BASE_PATH}/api/stocks/trade`;
         payload = {
           symbol: selected.position.symbol,
           side: "sell",
@@ -70,14 +71,14 @@ export function PositionTable({
           idempotencyKey: crypto.randomUUID(),
         };
       } else if (action === "exercise") {
-        endpoint = "/api/options/exercise";
+        endpoint = `${BASE_PATH}/api/options/exercise`;
         payload = {
           contractSymbol: selected.position.contract_symbol,
           quantity: count,
           idempotencyKey: crypto.randomUUID(),
         };
       } else {
-        endpoint = "/api/options/trade";
+        endpoint = `${BASE_PATH}/api/options/trade`;
         payload = {
           contractSymbol: selected.position.contract_symbol,
           underlying: selected.position.underlying,

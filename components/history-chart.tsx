@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BASE_PATH } from "@/lib/base-path";
 
 type Point = { date: string; close: number };
 const money = (value: number) =>
@@ -24,7 +25,7 @@ export function HistoryChart({
   useEffect(() => {
     let cancelled = false;
     const loadingTimer = window.setTimeout(() => setLoading(true), 0);
-    fetch(`/api/history?symbol=${symbol}&range=${range}`)
+    fetch(`${BASE_PATH}/api/history?symbol=${symbol}&range=${range}`)
       .then((response) => response.json())
       .then((data) => {
         if (!cancelled) setPoints(data.points ?? []);

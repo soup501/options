@@ -7,7 +7,7 @@ Type=simple
 WorkingDirectory=/var/www/options
 User=options
 EnvironmentFile=/etc/options.env
-ExecStart=/var/www/options/node_modules/.bin/next start -p 3001 -H 127.0.0.1
+ExecStart=/var/www/options/node_modules/.bin/next start -p 3002 -H 127.0.0.1
 Restart=on-failure
 RestartSec=5
 

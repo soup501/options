@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { BASE_PATH } from "@/lib/base-path";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -25,7 +26,7 @@ export function LearnChat() {
     setError("");
     setLoading(true);
     try {
-      const response = await fetch("/api/learn-chat", {
+      const response = await fetch(`${BASE_PATH}/api/learn-chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),

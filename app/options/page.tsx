@@ -3,6 +3,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AppShell, EducationNote, SectionHeader } from "@/components/app-shell";
 import { PayoffChart } from "@/components/payoff-chart";
 import { HistoryChart } from "@/components/history-chart";
+import { BASE_PATH } from "@/lib/base-path";
 
 type Quote = {
   symbol: string;
@@ -112,8 +113,8 @@ export default function Options() {
       setMessage("");
       try {
         const [quoteResponse, optionsResponse] = await Promise.all([
-          fetch(`/api/quote?symbol=${symbol}`),
-          fetch(`/api/options?symbol=${symbol}`, { cache: "no-store" }),
+          fetch(`${BASE_PATH}/api/quote?symbol=${symbol}`),
+          fetch(`${BASE_PATH}/api/options?symbol=${symbol}`, { cache: "no-store" }),
         ]);
         const nextQuote = await quoteResponse.json();
         const nextOptions = await optionsResponse.json();
@@ -146,7 +147,7 @@ export default function Options() {
       void loadSymbol(ticker);
     }, 0);
     const timer = window.setInterval(async () => {
-      const response = await fetch(`/api/quote?symbol=${ticker}`);
+      const response = await fetch(`${BASE_PATH}/api/quote?symbol=${ticker}`);
       if (response.ok) setQuote(await response.json());
     }, 30000);
     return () => {
@@ -155,7 +156,7 @@ export default function Options() {
     };
   }, [loadSymbol, ticker]);
   useEffect(() => {
-    void fetch("/api/options/settle", { method: "POST" });
+    void fetch(`${BASE_PATH}/api/options/settle`, { method: "POST" });
     const symbols: Array<{
       symbol: string;
       name: string;
@@ -182,7 +183,7 @@ export default function Options() {
       { symbol: "GLD", name: "Gold", type: "ETF" },
       { symbol: "TLT", name: "Long Treasuries", type: "ETF" },
     ];
-    fetch(`/api/quotes?symbols=${symbols.map((item) => item.symbol).join(",")}`)
+    fetch(`${BASE_PATH}/api/quotes?symbols=${symbols.map((item) => item.symbol).join(",")}`)
       .then((response) => (response.ok ? response.json() : { quotes: [] }))
       .then((data) =>
         setPopular(
@@ -209,7 +210,7 @@ export default function Options() {
       setContracts([]);
       setSelected(null);
       setLoading(true);
-      fetch(`/api/options?symbol=${ticker}&date=${expiration}`, {
+      fetch(`${BASE_PATH}/api/options?symbol=${ticker}&date=${expiration}`, {
         cache: "no-store",
       })
         .then(async (response) => {
@@ -248,7 +249,7 @@ export default function Options() {
       setSuggestions([]);
       return;
     }
-    fetch(`/api/search?q=${encodeURIComponent(next)}`)
+    fetch(`${BASE_PATH}/api/search?q=${encodeURIComponent(next)}`)
       .then((response) => (response.ok ? response.json() : { quotes: [] }))
       .then((data) => setSuggestions(data.quotes ?? []));
   };
@@ -338,7 +339,7 @@ export default function Options() {
     const quantity = Number(contractCount);
     setMessage("");
     try {
-      const response = await fetch("/api/options/trade", {
+      const response = await fetch(`${BASE_PATH}/api/options/trade`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

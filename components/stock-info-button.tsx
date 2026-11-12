@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BASE_PATH } from "@/lib/base-path";
 
 type Quote = {
   symbol: string;
@@ -27,7 +28,7 @@ export function StockInfoButton({ symbol }: { symbol: string }) {
     const loadingTimer = window.setTimeout(() => {
       setLoading(true);
       setError("");
-      fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`)
+      fetch(`${BASE_PATH}/api/quote?symbol=${encodeURIComponent(symbol)}`)
         .then(async (response) => {
           const data = await response.json();
           if (!response.ok) throw new Error(data.error ?? "Quote unavailable.");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BASE_PATH } from "@/lib/base-path";
 
 type Quote = {
   price: number;
@@ -54,7 +55,7 @@ export function PositionActions(props: Props) {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setQuoteError("");
-      fetch(`/api/quote?symbol=${encodeURIComponent(props.symbol)}`)
+      fetch(`${BASE_PATH}/api/quote?symbol=${encodeURIComponent(props.symbol)}`)
         .then(async (response) => {
           const data = await response.json();
           if (!response.ok) throw new Error(data.error ?? "Quote unavailable.");
@@ -94,7 +95,7 @@ export function PositionActions(props: Props) {
       let endpoint: string;
       let payload: Record<string, unknown>;
       if (props.type === "stock") {
-        endpoint = "/api/stocks/trade";
+        endpoint = `${BASE_PATH}/api/stocks/trade`;
         payload = {
           symbol: props.symbol,
           side: stockSide,
@@ -102,14 +103,14 @@ export function PositionActions(props: Props) {
           idempotencyKey: crypto.randomUUID(),
         };
       } else if (action === "exercise") {
-        endpoint = "/api/options/exercise";
+        endpoint = `${BASE_PATH}/api/options/exercise`;
         payload = {
           contractSymbol: props.contractSymbol,
           quantity: count,
           idempotencyKey: crypto.randomUUID(),
         };
       } else {
-        endpoint = "/api/options/trade";
+        endpoint = `${BASE_PATH}/api/options/trade`;
         payload = {
           contractSymbol: props.contractSymbol,
           underlying: props.underlying,

@@ -225,7 +225,7 @@ jobs:
             return 1
           }
 
-          wait_for_status http://127.0.0.1:3001/
+          wait_for_status http://127.0.0.1:3002/options
           if [[ -n "$public_url" ]]; then
             wait_for_status "$public_url"
           fi

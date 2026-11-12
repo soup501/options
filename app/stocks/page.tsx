@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { BASE_PATH } from "@/lib/base-path";
 import {
   AppShell,
   EducationNote,
@@ -50,7 +51,7 @@ export default function Stocks() {
   const [reviewing, setReviewing] = useState(false);
 
   const loadPortfolio = useCallback(async () => {
-    const response = await fetch("/api/portfolio");
+    const response = await fetch(`${BASE_PATH}/api/portfolio`);
     if (!response.ok)
       throw new Error(
         (await response.json()).error ?? "Portfolio unavailable.",
@@ -62,7 +63,7 @@ export default function Stocks() {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/quote?symbol=${encodeURIComponent(nextSymbol)}`,
+        `${BASE_PATH}/api/quote?symbol=${encodeURIComponent(nextSymbol)}`,
       );
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Quote unavailable.");
@@ -105,7 +106,7 @@ export default function Stocks() {
     setTrading(true);
     setMessage("");
     try {
-      const response = await fetch("/api/stocks/trade", {
+      const response = await fetch(`${BASE_PATH}/api/stocks/trade`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { BASE_PATH } from "@/lib/base-path";
 
 export default function Login() {
   return (
@@ -20,7 +21,7 @@ export default function Login() {
         </p>
         <button
           className="button primary login-button"
-          onClick={() => signIn("google", { callbackUrl: "/options" })}
+          onClick={() => signIn("google", { callbackUrl: `${BASE_PATH}/options` })}
         >
           <span className="google-mark">G</span> Continue with Google
         </button>

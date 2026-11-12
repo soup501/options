@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
+import { BASE_PATH } from "@/lib/base-path";
 
 const nav = [
   ["/", "Overview"],
@@ -67,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <button
             className="profile"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => signOut({ callbackUrl: `${BASE_PATH}/login` })}
           >
             <span className="avatar">
               {session?.user?.name?.slice(0, 2).toUpperCase() ?? "U"}
