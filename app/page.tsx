@@ -23,6 +23,15 @@ export default async function Home() {
   let portfolio: Awaited<ReturnType<typeof getPortfolio>> | null = null;
   const session = await auth();
   const displayName = session?.user?.name ?? session?.user?.email;
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "America/New_York",
+    }).format(new Date()),
+  );
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const identity = await getAuthenticatedIdentity();
   if (process.env.DATABASE_URL && identity) {
     const accountId = await withAccountTransaction(identity, (client) =>
@@ -98,7 +107,7 @@ export default async function Home() {
           <div>
             <span className="eyebrow">LEARNING PORTFOLIO</span>
             <h1>
-              Good morning, {displayName} <span className="wave">✦</span>
+              {greeting}, {displayName} <span className="wave">✦</span>
             </h1>
             <p className="subtitle">
               Here is how your persisted paper portfolio is doing.

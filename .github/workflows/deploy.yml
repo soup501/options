@@ -95,8 +95,8 @@ jobs:
             -o StrictHostKeyChecking=yes
             -o UserKnownHostsFile="$temp_dir/known_hosts"
           )
-          ssh_cmd=(ssh -A "${ssh_opts[@]}" "root@$DEPLOY_HOST")
-          scp_cmd=(scp -A "${ssh_opts[@]}")
+          ssh_cmd=(ssh "${ssh_opts[@]}" "root@$DEPLOY_HOST")
+          scp_cmd=(scp "${ssh_opts[@]}")
 
           remote_transfer_dir="$("${ssh_cmd[@]}" 'mktemp -d /var/tmp/options-deploy.XXXXXX')"
           [[ "$remote_transfer_dir" =~ ^/var/tmp/options-deploy\.[A-Za-z0-9]+$ ]]

@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
   const date = request.nextUrl.searchParams.get("date");
   if (!symbol || !/^[A-Z.\-]{1,10}$/.test(symbol))
     return NextResponse.json({ error: "Invalid symbol" }, { status: 400 });
+  if (date && !Number.isFinite(Number(date)))
+    return NextResponse.json({ error: "Invalid date" }, { status: 400 });
   try {
     const result = await yahoo.options(
       symbol,

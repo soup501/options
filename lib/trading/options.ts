@@ -1,4 +1,5 @@
 import { PoolClient } from "pg";
+import { TradeConflictError } from "@/lib/trading/errors";
 
 type OptionInput = {
   contractSymbol: string;
@@ -29,7 +30,7 @@ export async function executeOptionTrade(
     "SELECT cash FROM accounts WHERE id = current_setting('app.account_id')::int FOR UPDATE",
   );
   if (!account.rowCount)
-    throw new Error("Account is not initialized. Run setup_db.py first.");
+    throw new TradeConflictError("Account is not initialized. Run setup_db.py first.");
   const cash = Number(account.rows[0].cash);
   const openingSide = input.effect.includes("open")
     ? input.effect.startsWith("Buy")
@@ -44,7 +45,7 @@ export async function executeOptionTrade(
 
   if (isOpening) {
     if (openingSide === "long" && cash < total)
-      throw new Error(`Insufficient cash. Available cash is $${money(cash)}.`);
+      throw new TradeConflictError(`Insufficient cash. Available cash is $${money(cash)}.`);
     if (openingSide === "short" && input.kind === "Call") {
       const shares = await client.query(
         "SELECT COALESCE(SUM(remaining_quantity), 0)::int AS quantity FROM stock_lots WHERE account_id = current_setting('app.account_id')::int AND symbol = $1 AND remaining_quantity > 0",
@@ -58,7 +59,7 @@ export async function executeOptionTrade(
         Number(shares.rows[0].quantity) -
         Number(shortCalls.rows[0].quantity) * multiplier;
       if (availableShares < input.quantity * multiplier)
-        throw new Error(
+        throw new TradeConflictError(
           `Insufficient unreserved shares. A covered call needs ${input.quantity * multiplier} available shares.`,
         );
     }
@@ -71,7 +72,7 @@ export async function executeOptionTrade(
         Number(reserved.rows[0].amount) +
           input.strike * multiplier * input.quantity
       )
-        throw new Error(
+        throw new TradeConflictError(
           `Insufficient cash collateral. This cash-secured put requires $${money(input.strike * multiplier * input.quantity)}.`,
         );
     }
@@ -98,7 +99,7 @@ export async function executeOptionTrade(
       0,
     );
     if (available < input.quantity)
-      throw new Error(`Insufficient ${openingSide} option contracts to close.`);
+      throw new TradeConflictError(`Insufficient ${openingSide} option contracts to close.`);
     let remaining = input.quantity;
     for (const lot of lots.rows) {
       if (!remaining) break;

@@ -3,6 +3,7 @@ import { withAccountTransaction } from "@/lib/db";
 import { yahoo } from "@/lib/yahoo";
 import { executeOptionTrade } from "@/lib/trading/options";
 import { getAuthenticatedIdentity } from "@/lib/auth-account";
+import { TradeConflictError } from "@/lib/trading/errors";
 
 export const runtime = "nodejs";
 
@@ -115,9 +116,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: message },
       {
-        status: /Insufficient|initialized|close|collateral/i.test(message)
-          ? 409
-          : 503,
+        status: error instanceof TradeConflictError ? 409 : 503,
       },
     );
   }
