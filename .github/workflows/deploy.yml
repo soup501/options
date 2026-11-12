@@ -59,7 +59,7 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          : "${DEPLOY_HOST:?Set the DEPLOY_HOST repository secret}"
+          : "${DEPLOY_HOST:?DEPLOY_HOST must be set in the workflow env}"
           : "${DEPLOY_SSH_PRIVATE_KEY:?Set the DEPLOY_SSH_PRIVATE_KEY repository secret}"
           : "${DEPLOY_KNOWN_HOSTS:?Set the DEPLOY_KNOWN_HOSTS repository secret}"
           [[ -f "$DEPENDENCY_ARCHIVE" ]]
