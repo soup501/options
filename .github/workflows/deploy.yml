@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_HOST: 67.205.180.51
       DEPENDENCY_ARCHIVE: /tmp/options-node-modules-${{ github.sha }}.tar.gz
       DEPENDENCY_CHECKSUM: /tmp/options-node-modules-${{ github.sha }}.tar.gz.sha256
     steps:
