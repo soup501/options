@@ -14,7 +14,12 @@ export async function POST(request: NextRequest) {
     messages?: Array<{ role: "user" | "assistant"; content: string }>;
   } | null;
   const messages = body?.messages
-    ?.filter((message) => message.content.trim())
+    ?.filter(
+      (message) =>
+        (message.role === "user" || message.role === "assistant") &&
+        typeof message.content === "string" &&
+        message.content.trim(),
+    )
     .map((message) => ({
       role: message.role,
       content: message.content.slice(0, 6_000),

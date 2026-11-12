@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import {
   AppShell,
   EducationNote,
@@ -20,6 +21,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let portfolio: Awaited<ReturnType<typeof getPortfolio>> | null = null;
+  const session = await auth();
+  const displayName = session?.user?.name ?? session?.user?.email;
   const identity = await getAuthenticatedIdentity();
   if (process.env.DATABASE_URL && identity) {
     const accountId = await withAccountTransaction(identity, (client) =>
@@ -95,7 +98,7 @@ export default async function Home() {
           <div>
             <span className="eyebrow">LEARNING PORTFOLIO</span>
             <h1>
-              Good morning, Jordan <span className="wave">✦</span>
+              Good morning, {displayName} <span className="wave">✦</span>
             </h1>
             <p className="subtitle">
               Here is how your persisted paper portfolio is doing.

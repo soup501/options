@@ -37,14 +37,6 @@ export async function exerciseLongOption(
         `Insufficient cash to exercise. Required cash is $${debit.toFixed(2)}.`,
       );
     cashDelta = -debit;
-    await client.query(
-      "INSERT INTO stock_lots (account_id, symbol, quantity, remaining_quantity, cost_basis, acquired_at) VALUES (current_setting('app.account_id')::int, $1, $2, $2, $3, NOW())",
-      [
-        lot.underlying,
-        totalShares,
-        Number(lot.strike) + Number(lot.opening_premium),
-      ],
-    );
   } else {
     const shares = await client.query(
       "SELECT COALESCE(SUM(remaining_quantity), 0)::int AS quantity FROM stock_lots WHERE account_id = current_setting('app.account_id')::int AND symbol = $1 AND remaining_quantity > 0",
@@ -78,10 +70,26 @@ export async function exerciseLongOption(
     }
     cashDelta = Number(lot.strike) * totalShares;
   }
-  await client.query(
-    "UPDATE option_lots SET remaining_contracts = remaining_contracts - $1, status = CASE WHEN remaining_contracts = $1 THEN 'exercised' ELSE status END, settlement_outcome = CASE WHEN remaining_contracts = $1 THEN 'exercised' ELSE settlement_outcome END, settled_at = CASE WHEN remaining_contracts = $1 THEN NOW() ELSE settled_at END WHERE id = $2",
-    [input.quantity, lot.id],
-  );
+  let remainingContracts = input.quantity;
+  for (const optionLot of lotResult.rows) {
+    if (!remainingContracts) break;
+    const used = Math.min(remainingContracts, optionLot.remaining_contracts);
+    if (lot.kind === "Call") {
+      await client.query(
+        "INSERT INTO stock_lots (account_id, symbol, quantity, remaining_quantity, cost_basis, acquired_at) VALUES (current_setting('app.account_id')::int, $1, $2, $2, $3, NOW())",
+        [
+          lot.underlying,
+          used * multiplier,
+          Number(lot.strike) + Number(optionLot.opening_premium),
+        ],
+      );
+    }
+    await client.query(
+      "UPDATE option_lots SET remaining_contracts = remaining_contracts - $1, status = CASE WHEN remaining_contracts = $1 THEN 'exercised' ELSE status END, settlement_outcome = CASE WHEN remaining_contracts = $1 THEN 'exercised' ELSE settlement_outcome END, settled_at = CASE WHEN remaining_contracts = $1 THEN NOW() ELSE settled_at END WHERE id = $2",
+      [used, optionLot.id],
+    );
+    remainingContracts -= used;
+  }
   await client.query(
     "UPDATE accounts SET cash = cash + $1, updated_at = NOW() WHERE id = current_setting('app.account_id')::int",
     [cashDelta],
