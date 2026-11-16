@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { BASE_PATH } from "@/lib/base-path";
+import { readChatStream } from "@/lib/ai/read-chat-stream";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -26,46 +26,20 @@ export function LearnChat() {
     setError("");
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_PATH}/api/learn-chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
-      });
-      if (!response.ok || !response.body) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.error ?? "Tutor unavailable.");
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let answer = "";
-      setMessages((current) => [
-        ...current,
-        { role: "assistant", content: "" },
-      ]);
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        for (const line of decoder
-          .decode(value, { stream: true })
-          .split("\n")) {
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (data === "[DONE]") continue;
-          try {
-            const token = JSON.parse(data).choices?.[0]?.delta?.content ?? "";
-            answer += token;
-            setMessages((current) =>
-              current.map((message, index) =>
-                index === current.length - 1
-                  ? { ...message, content: answer }
-                  : message,
-              ),
-            );
-          } catch {
-            /* Ignore keep-alive and incomplete SSE frames. */
-          }
-        }
-      }
+      setMessages((current) => [...current, { role: "assistant", content: "" }]);
+      await readChatStream(
+        "/api/learn-chat",
+        { messages: next },
+        (answer) =>
+          setMessages((current) =>
+            current.map((message, index) =>
+              index === current.length - 1
+                ? { ...message, content: answer }
+                : message,
+            ),
+          ),
+        "Tutor unavailable.",
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Tutor unavailable.");
       setMessages(next);

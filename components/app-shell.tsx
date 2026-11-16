@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { BASE_PATH } from "@/lib/base-path";
+import { AssistantWidget } from "@/components/assistant-widget";
 
 const nav = [
   ["/", "Overview"],
@@ -29,7 +30,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
         </div>
         <div className="workspace-label">
-          PAPER ACCOUNT <span className="live-dot" /> LIVE DATA
+          PAPER ACCOUNT <span className="live-dot" /> DELAYED DATA
         </div>
         <nav className="nav-list" aria-label="Primary navigation">
           {nav.map(([href, label]) => (
@@ -96,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="top-actions">
             <span className="status-pill">
-              <i /> Market open
+              <i /> Market hours not verified
             </span>
             <button className="icon-button" aria-label="Notifications">
               ♧
@@ -105,6 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         {children}
       </main>
+      <AssistantWidget />
     </div>
   );
 }
@@ -166,23 +168,19 @@ export function Sparkline({
   const updateHover = (clientX: number, element: SVGSVGElement) => {
     const box = element.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (clientX - box.left) / box.width));
-    const series = values?.length ? values : [10000, 10400, 10779.48];
+    const series = values?.filter(Number.isFinite) ?? [];
+    if (!series.length) return;
     const value =
       series[
         Math.min(series.length - 1, Math.round(ratio * (series.length - 1)))
       ];
     setHover({
       x: ratio * 100,
-      label:
-        ratio < 0.5
-          ? "Jul 11, 2026"
-          : ratio < 0.8
-            ? "Jul 25, 2026"
-            : "Aug 8, 2026",
+      label: `Ledger observation ${Math.min(series.length, Math.round(ratio * (series.length - 1)) + 1)} of ${series.length}`,
       value: `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     });
   };
-  const series = values?.length ? values : null;
+  const series = values?.length && values.every(Number.isFinite) ? values : null;
   const chartPath = series
     ? (() => {
         const min = Math.min(...series);
@@ -196,21 +194,23 @@ export function Sparkline({
           })
           .join(" ");
       })()
-    : "M0 64 C20 60 28 63 42 55 S65 60 78 47 S100 52 115 43 S135 50 148 32 S167 40 179 34 S198 41 208 26 S231 33 245 19 S265 26 280 8";
+    : "";
   const areaPath = `${chartPath} L280 80 L0 80Z`;
+  if (!series) return <p className="disclaimer">No recorded chart data available.</p>;
   return (
     <div className="sparkline-wrap">
       <svg
         className="sparkline"
         viewBox="0 0 280 80"
         role="img"
-        aria-label="Interactive portfolio performance chart"
+        aria-label={`Cash ledger sequence, ${series.length} observations, first ${series[0].toFixed(2)}, latest ${series.at(-1)!.toFixed(2)} dollars. Observation spacing does not represent elapsed time.`}
         onPointerMove={(event) =>
           updateHover(event.clientX, event.currentTarget)
         }
         onPointerLeave={() => setHover(null)}
       >
         <path d={chartPath} fill="none" stroke={color} strokeWidth="3" />
+        {series.length === 1 && <circle cx="0" cy="68" r="3" fill={color} />}
         <path d={areaPath} fill={color} opacity=".1" />
       </svg>
       {hover && (
