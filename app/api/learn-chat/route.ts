@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { getProjectContext } from "@/lib/ai/project-context";
-import { cleanMessages, streamCompletion } from "@/lib/ai/chat-completion";
-import { jsonObject } from "@/lib/execution-policy";
+import { cleanMessages, jsonObject, streamCompletion } from "@/lib/ai/chat-completion";
 
 export const runtime = "nodejs";
 

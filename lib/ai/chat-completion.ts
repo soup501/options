@@ -1,6 +1,10 @@
-import { jsonObject } from "@/lib/execution-policy";
-
 export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+export function jsonObject(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
 
 export function cleanMessages(value: unknown): ChatMessage[] {
   return (Array.isArray(value) ? value : [])

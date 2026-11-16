@@ -1,9 +1,8 @@
 import { NextRequest } from "next/server";
 import { getProjectContext } from "@/lib/ai/project-context";
-import { cleanMessages, streamCompletion } from "@/lib/ai/chat-completion";
+import { cleanMessages, jsonObject, streamCompletion } from "@/lib/ai/chat-completion";
 import { getAuthenticatedIdentity } from "@/lib/auth-account";
 import { withAccountTransaction } from "@/lib/db";
-import { jsonObject } from "@/lib/execution-policy";
 import { getPortfolio } from "@/lib/trading/stocks";
 
 export const runtime = "nodejs";
