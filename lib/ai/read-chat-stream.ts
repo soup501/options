@@ -25,9 +25,8 @@ export async function readChatStream(
     for (const line of decoder.decode(value, { stream: true }).split("\n")) {
       if (!line.startsWith("data:")) continue;
       const data = line.slice(5).trim();
-      if (data === "[DONE]") continue;
       try {
-        answer += JSON.parse(data).choices?.[0]?.delta?.content ?? "";
+        answer += JSON.parse(data).delta?.text ?? "";
         onAnswer(answer);
       } catch {
         /* Ignore keep-alive and incomplete SSE frames. */

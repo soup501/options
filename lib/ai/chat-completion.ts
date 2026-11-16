@@ -23,24 +23,26 @@ export function cleanMessages(value: unknown): ChatMessage[] {
 }
 
 export async function streamCompletion(system: string, messages: ChatMessage[]) {
-  const key = process.env.OPENAI_API_KEY;
+  const key = process.env.ANTHROPIC_API_KEY;
   if (!key)
     return Response.json(
-      { error: "OPENAI_API_KEY is not configured." },
+      { error: "ANTHROPIC_API_KEY is not configured." },
       { status: 503 },
     );
-  const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key}`,
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.AI_MODEL ?? "gpt-4o-mini",
+      model: process.env.AI_MODEL ?? "claude-haiku-5-5",
       stream: true,
-      max_tokens: 700,
+      max_tokens: 1024,
       temperature: 0.2,
-      messages: [{ role: "system", content: system }, ...messages],
+      system,
+      messages,
     }),
   });
   if (!upstream.ok || !upstream.body) {
