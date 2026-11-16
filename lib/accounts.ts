@@ -9,6 +9,9 @@ export async function ensureAccount(
   client: PoolClient,
   identity: UserIdentity,
 ) {
+  if (typeof identity.userId !== "string" || !identity.userId.trim() || identity.userId.length > 255 ||
+      typeof identity.email !== "string" || !identity.email.trim() || identity.email.length > 320)
+    throw new Error("Invalid account identity.");
   const existing = await client.query(
     "SELECT id FROM accounts WHERE user_id = $1 OR email = $2 FOR UPDATE",
     [identity.userId, identity.email],
